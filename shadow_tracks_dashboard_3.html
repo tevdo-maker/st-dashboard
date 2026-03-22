@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shadow Tracks — Royalty Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0e0f;
+    --surface: #161618;
+    --surface2: #1e1e21;
+    --border: #2a2a2e;
+    --border2: #3a3a3f;
+    --text: #f0f0ee;
+    --muted: #777780;
+    --dim: #444448;
+    --green: #3dd68c;
+    --green-bg: #0d2a1c;
+    --green-border: #1a4a30;
+    --red: #f05858;
+    --red-bg: #2a0f0f;
+    --red-border: #4a1818;
+    --amber: #f0b429;
+    --amber-bg: #2a1e06;
+    --amber-border: #4a3510;
+    --blue: #5b9cf6;
+    --blue-bg: #0d1a2e;
+    --blue-border: #1a3050;
+    --accent: #9b7fe8;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .mono { font-family: 'DM Mono', monospace; }
+
+  /* Header */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    color: var(--text);
+    text-transform: uppercase;
+  }
+
+  .logo span { color: var(--accent); }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .last-updated {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .refresh-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    background: none;
+    border: 1px solid var(--border2);
+    color: var(--muted);
+    padding: 5px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.05em;
+  }
+
+  .refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .refresh-btn.loading { opacity: 0.5; pointer-events: none; }
+
+  /* Main layout */
+  main { padding: 28px 32px; max-width: 1400px; }
+
+  /* Loading / Error */
+  .state-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 60vh;
+    gap: 12px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+  }
+
+  .spinner {
+    width: 24px; height: 24px;
+    border: 2px solid var(--border2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* API key prompt */
+  .api-prompt {
+    max-width: 480px;
+    margin: 80px auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 32px;
+  }
+
+  .api-prompt h2 {
+    font-size: 16px;
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+
+  .api-prompt p {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 20px;
+    line-height: 1.6;
+  }
+
+  .api-prompt input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    margin-bottom: 12px;
+    outline: none;
+  }
+
+  .api-prompt input:focus { border-color: var(--accent); }
+
+  .btn-primary {
+    width: 100%;
+    background: var(--accent);
+    border: none;
+    color: #fff;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+
+  .btn-primary:hover { opacity: 0.9; }
+
+  /* Alerts */
+  .alerts { margin-bottom: 28px; display: flex; flex-direction: column; gap: 8px; }
+
+  .alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    border: 1px solid;
+    animation: fadeIn 0.3s ease;
+  }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+  .alert.red { background: var(--red-bg); border-color: var(--red-border); }
+  .alert.amber { background: var(--amber-bg); border-color: var(--amber-border); }
+  .alert-dot { width: 6px; height: 6px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+  .alert.red .alert-dot { background: var(--red); }
+  .alert.amber .alert-dot { background: var(--amber); }
+  .alert-text { color: var(--text); line-height: 1.5; }
+  .alert-text strong { font-weight: 500; }
+
+  /* Metrics */
+  .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px; }
+
+  .metric {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    transition: border-color 0.15s;
+  }
+
+  .metric:hover { border-color: var(--border2); }
+  .metric.clickable { cursor: pointer; }
+  .metric.clickable:hover { border-color: var(--accent); }
+  .metric.active-filter { border-color: var(--accent); background: #1a1725; }
+  .metric-label { font-size: 11px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px; font-family: 'DM Mono', monospace; }
+  .metric-value { font-size: 26px; font-weight: 300; letter-spacing: -0.02em; }
+  .metric-value.danger { color: var(--red); }
+  .metric-value.success { color: var(--green); }
+  .metric-sub { font-size: 11px; color: var(--muted); margin-top: 4px; font-family: 'DM Mono', monospace; }
+  .filter-pill { display: inline-block; font-family: 'DM Mono', monospace; font-size: 10px; background: #1a1725; border: 1px solid var(--accent); color: var(--accent); padding: 3px 10px; border-radius: 3px; margin-bottom: 12px; cursor: pointer; letter-spacing: 0.05em; }
+  .filter-pill:hover { background: #251e38; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 0; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
+
+  .tab-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 400;
+    padding: 10px 18px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.15s;
+  }
+
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 500; }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* Section label */
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--dim);
+    margin-bottom: 12px;
+  }
+
+  /* Invoice table */
+  .table-wrap { overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  th {
+    text-align: left;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--dim);
+    padding: 0 12px 10px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  th.r, td.r { text-align: right; }
+
+  td {
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    vertical-align: middle;
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  tr:hover td { background: var(--surface2); }
+
+  .inv-num { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .inv-partner { font-weight: 500; white-space: nowrap; }
+  .inv-period { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+  .inv-amount { font-family: 'DM Mono', monospace; font-size: 13px; white-space: nowrap; }
+  .inv-wht { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); }
+  .inv-notes { font-size: 12px; color: var(--muted); max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Badges */
+  .badge {
+    display: inline-block;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+
+  .badge.paid { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+  .badge.sent { background: var(--blue-bg); color: var(--blue); border: 1px solid var(--blue-border); }
+  .badge.overdue { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+
+  /* Mark paid button */
+  .mark-paid-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    background: none;
+    border: 1px solid var(--border2);
+    color: var(--muted);
+    padding: 4px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .mark-paid-btn:hover { border-color: var(--green); color: var(--green); }
+  .mark-paid-btn:disabled { opacity: 0.3; pointer-events: none; }
+
+  /* Partners grid */
+  .partners-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+
+  .partner-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    transition: border-color 0.15s;
+  }
+
+  .partner-card:hover { border-color: var(--border2); }
+  .partner-card.has-issues { border-color: var(--red-border); }
+
+  .partner-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
+  .partner-name { font-size: 14px; font-weight: 500; }
+  .partner-territory { font-size: 12px; color: var(--muted); margin-bottom: 12px; line-height: 1.4; }
+
+  .partner-meta { display: flex; flex-direction: column; gap: 6px; }
+
+  .meta-row { display: flex; justify-content: space-between; align-items: center; }
+  .meta-key { font-size: 11px; color: var(--dim); font-family: 'DM Mono', monospace; }
+  .meta-val { font-size: 11px; font-family: 'DM Mono', monospace; }
+  .meta-val.ok { color: var(--green); }
+  .meta-val.warn { color: var(--amber); }
+  .meta-val.danger { color: var(--red); }
+
+  .partner-issues { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 3px; }
+  .issue-item { font-size: 11px; color: var(--red); }
+
+  /* Mark paid modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 28px;
+    width: 420px;
+    max-width: 90vw;
+  }
+
+  .modal h3 { font-size: 15px; font-weight: 500; margin-bottom: 6px; }
+  .modal p { font-size: 13px; color: var(--muted); margin-bottom: 20px; line-height: 1.5; }
+
+  .modal-fields { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+
+  .field-group label { display: block; font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; letter-spacing: 0.05em; margin-bottom: 6px; }
+
+  .field-group input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    outline: none;
+  }
+
+  .field-group input:focus { border-color: var(--accent); }
+
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+  .btn-cancel {
+    background: none;
+    border: 1px solid var(--border2);
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  .btn-confirm {
+    background: var(--green);
+    border: none;
+    color: #000;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+
+  .btn-confirm:hover { opacity: 0.9; }
+  .btn-confirm:disabled { opacity: 0.4; pointer-events: none; }
+
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--green-bg);
+    border: 1px solid var(--green-border);
+    color: var(--green);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    padding: 10px 16px;
+    border-radius: 6px;
+    z-index: 300;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: all 0.2s;
+    pointer-events: none;
+  }
+
+  .toast.show { opacity: 1; transform: none; }
+
+  @media (max-width: 900px) {
+    main { padding: 20px 16px; }
+    header { padding: 0 16px; }
+    .metrics { grid-template-columns: repeat(2, 1fr); }
+    .partners-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Shadow <span>Tracks</span></div>
+  <div class="header-right">
+    <span class="last-updated" id="last-updated">—</span>
+    <button class="refresh-btn" id="refresh-btn" onclick="loadData()">↻ Refresh</button>
+  </div>
+</header>
+
+<!-- API Key Prompt -->
+<div id="api-prompt-screen" style="display:none; padding: 32px;">
+  <div class="api-prompt">
+    <h2>Connect to Airtable</h2>
+    <p>Enter your Airtable Personal Access Token to load live data. It's stored only in your browser's local storage and never sent anywhere except Airtable's API.</p>
+    <input type="password" id="api-key-input" placeholder="patXXXXXXXXXXXXXX..." />
+    <button class="btn-primary" onclick="saveApiKey()">Connect</button>
+  </div>
+</div>
+
+<!-- Loading -->
+<div id="loading-screen" class="state-screen" style="display:none;">
+  <div class="spinner"></div>
+  <span>Loading from Airtable...</span>
+</div>
+
+<!-- Error -->
+<div id="error-screen" class="state-screen" style="display:none;">
+  <span id="error-msg" style="color: var(--red);">Failed to load data.</span>
+  <button class="refresh-btn" onclick="loadData()" style="margin-top:8px;">Try again</button>
+  <button class="refresh-btn" onclick="clearApiKey()" style="margin-top:4px;">Re-enter API key</button>
+</div>
+
+<!-- Dashboard -->
+<main id="dashboard" style="display:none;">
+
+  <div class="alerts" id="alerts-container"></div>
+
+  <div class="metrics" id="metrics-container"></div>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('invoices', this)">Invoices</button>
+    <button class="tab-btn" onclick="switchTab('partners', this)">Sub-publishers</button>
+  </div>
+
+  <div class="tab-panel active" id="tab-invoices">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Invoice</th>
+            <th>Partner</th>
+            <th>Period</th>
+            <th class="r">Invoiced</th>
+            <th class="r">WHT</th>
+            <th class="r">Received</th>
+            <th class="r">USD equiv.</th>
+            <th>Status</th>
+            <th>Notes</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="invoices-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-partners">
+    <div class="partners-grid" id="partners-grid"></div>
+  </div>
+
+</main>
+
+<!-- Mark Paid Modal -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <h3>Mark as paid</h3>
+    <p id="modal-desc">Update payment details for this invoice.</p>
+    <div class="modal-fields">
+      <div class="field-group">
+        <label>Amount received</label>
+        <input type="number" id="modal-amount" step="0.01" placeholder="0.00" />
+      </div>
+      <div class="field-group">
+        <label>WHT deducted</label>
+        <input type="number" id="modal-wht" step="0.01" placeholder="0.00" />
+      </div>
+      <div class="field-group">
+        <label>Payment date</label>
+        <input type="date" id="modal-date" />
+      </div>
+      <div class="field-group">
+        <label>USD equivalent</label>
+        <input type="number" id="modal-usd" step="0.01" placeholder="0.00" />
+      </div>
+      <div class="field-group">
+        <label>FX rate used</label>
+        <input type="number" id="modal-fx" step="0.0001" placeholder="1.0000" />
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-confirm" id="modal-confirm" onclick="confirmMarkPaid()">Mark paid</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const BASE_ID = 'appyj1zvlkzq6CaZR';
+const INVOICES_TABLE = 'tblGABTyanQfnBPg9';
+const SUBPUB_TABLE = 'tbldPs3b55pWdwNsf';
+
+let allInvoices = [];
+let allPartners = [];
+let activeRecordId = null;
+let activeFilter = null; // 'owed' | 'overdue' | null
+
+// Partner name map built from loaded data
+let partnerMap = {};
+
+// ─── API KEY ──────────────────────────────────────────────
+function getApiKey() { return localStorage.getItem('st_airtable_key'); }
+function saveApiKey() {
+  const k = document.getElementById('api-key-input').value.trim();
+  if (!k) return;
+  localStorage.setItem('st_airtable_key', k);
+  show('loading-screen');
+  hide('api-prompt-screen');
+  loadData();
+}
+function clearApiKey() {
+  localStorage.removeItem('st_airtable_key');
+  show('api-prompt-screen');
+  hide('error-screen');
+  hide('dashboard');
+}
+
+// ─── FETCH ────────────────────────────────────────────────
+async function airtableFetch(tableId) {
+  const key = getApiKey();
+  const res = await fetch(
+    `https://api.airtable.com/v0/${BASE_ID}/${tableId}?pageSize=100`,
+    { headers: { Authorization: `Bearer ${key}` } }
+  );
+  if (!res.ok) throw new Error(`Airtable error: ${res.status}`);
+  const data = await res.json();
+  return data.records;
+}
+
+async function airtablePatch(tableId, recordId, fields) {
+  const key = getApiKey();
+  const res = await fetch(
+    `https://api.airtable.com/v0/${BASE_ID}/${tableId}/${recordId}`,
+    {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields })
+    }
+  );
+  if (!res.ok) throw new Error(`Update failed: ${res.status}`);
+  return res.json();
+}
+
+// ─── LOAD ─────────────────────────────────────────────────
+async function loadData() {
+  const key = getApiKey();
+  if (!key) { show('api-prompt-screen'); hide('loading-screen'); hide('dashboard'); return; }
+
+  const btn = document.getElementById('refresh-btn');
+  btn.classList.add('loading');
+  btn.textContent = '↻ Loading...';
+
+  show('loading-screen');
+  hide('dashboard');
+  hide('error-screen');
+
+  try {
+    const [invRecs, partnerRecs] = await Promise.all([
+      airtableFetch(INVOICES_TABLE),
+      airtableFetch(SUBPUB_TABLE)
+    ]);
+
+    allPartners = partnerRecs;
+    partnerMap = {};
+    partnerRecs.forEach(r => { partnerMap[r.id] = r.fields['Short Name'] || r.fields['Subpublisher Name'] || '—'; });
+
+    allInvoices = invRecs.map(r => ({
+      id: r.id,
+      num: r.fields['Invoice Number'] || '—',
+      partner: (r.fields['Subpublisher'] || []).map(id => partnerMap[id] || id).join(', '),
+      period: r.fields['Royalty Period'] || '—',
+      cur: r.fields['Currency'] || 'EUR',
+      inv: r.fields['Invoice Amount'] || 0,
+      wht: r.fields['WHT Deducted'] || 0,
+      rec: r.fields['Amount Received'] || 0,
+      usd: r.fields['USD Equivalent'] || 0,
+      fx: r.fields['FX Rate Used'] || null,
+      status: r.fields['Status'] || 'Sent',
+      payDate: r.fields['Payment Date'] || null,
+      dueDate: r.fields['Due Date'] || null,
+      notes: r.fields['Notes'] || '',
+    }));
+
+    document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'});
+
+    renderDashboard();
+    show('dashboard');
+    hide('loading-screen');
+
+  } catch(e) {
+    console.error(e);
+    document.getElementById('error-msg').textContent = e.message || 'Failed to load data.';
+    show('error-screen');
+    hide('loading-screen');
+  }
+
+  btn.classList.remove('loading');
+  btn.textContent = '↻ Refresh';
+}
+
+// ─── RENDER ───────────────────────────────────────────────
+function renderDashboard() {
+  renderAlerts();
+  renderMetrics();
+  renderInvoices();
+  renderPartners();
+}
+
+function renderAlerts() {
+  const today = new Date();
+  const alerts = [];
+
+  // Overdue invoices
+  const overdue = allInvoices.filter(i => i.status === 'Overdue');
+  overdue.forEach(i => {
+    alerts.push({ type: 'red', msg: `<strong>${i.num} — OVERDUE.</strong> ${i.partner} owes ${fmt(i.inv, i.cur)}. ${i.notes.split('.')[0]}.` });
+  });
+
+  // Partner renewals — from partner data
+  allPartners.forEach(r => {
+    const f = r.fields;
+    const renDate = f['Renewal Decision By'];
+    if (!renDate) return;
+    const d = new Date(renDate);
+    const days = Math.round((d - today) / 86400000);
+    if (days <= 90 && days >= -7) {
+      const label = days < 0 ? 'OVERDUE' : days === 0 ? 'TODAY' : `${days}d`;
+      alerts.push({ type: days <= 30 ? 'red' : 'amber', msg: `<strong>${f['Short Name'] || f['Subpublisher Name']} contract renewal decision due ${fmtDate(renDate)}</strong> — ${label}.` });
+    }
+  });
+
+  // MoM 2025b statement check
+  const momStmt = new Date('2026-03-31');
+  const stmtDays = Math.round((momStmt - today) / 86400000);
+  if (stmtDays >= 0 && stmtDays <= 14) {
+    alerts.push({ type: 'amber', msg: `<strong>Miles of Music 2025b statement due March 31.</strong> Not yet received — chase Tanya if not in by end of month.` });
+  }
+
+  // Form 6166
+  alerts.push({ type: 'amber', msg: `<strong>2025 Form 6166 pending.</strong> Send to Schubert (g.stiedl@schubertmusic.com) when received — before Apr 19 due date.` });
+
+  document.getElementById('alerts-container').innerHTML = alerts.map(a =>
+    `<div class="alert ${a.type}"><div class="alert-dot"></div><div class="alert-text">${a.msg}</div></div>`
+  ).join('');
+}
+
+function renderMetrics() {
+  const outstanding = allInvoices.filter(i => i.status !== 'Paid');
+  const overdue = allInvoices.filter(i => i.status === 'Overdue');
+  const paid = allInvoices.filter(i => i.status === 'Paid');
+
+  const owedUSD = outstanding.reduce((s, i) => {
+    return s + (i.cur === 'USD' ? i.inv : i.inv * 1.08);
+  }, 0);
+  const overdueUSD = overdue.reduce((s, i) => {
+    return s + (i.cur === 'USD' ? i.inv : i.inv * 1.08);
+  }, 0);
+  const totalRecUSD = paid.reduce((s, i) => s + (i.usd || 0), 0);
+  const ytdUSD = paid.filter(i => i.payDate && i.payDate.startsWith('2026')).reduce((s, i) => s + (i.usd || 0), 0);
+
+  document.getElementById('metrics-container').innerHTML = `
+    <div class="metric clickable ${activeFilter==='owed'?'active-filter':''}" onclick="toggleFilter('owed')">
+      <div class="metric-label">Total owed ${activeFilter==='owed'?'✕':''}</div>
+      <div class="metric-value">$${Math.round(owedUSD).toLocaleString()}</div>
+      <div class="metric-sub">${outstanding.length} open invoice${outstanding.length !== 1 ? 's' : ''}</div>
+    </div>
+    <div class="metric clickable ${activeFilter==='overdue'?'active-filter':''}" onclick="toggleFilter('overdue')">
+      <div class="metric-label">Overdue ${activeFilter==='overdue'?'✕':''}</div>
+      <div class="metric-value danger">$${Math.round(overdueUSD).toLocaleString()}</div>
+      <div class="metric-sub">${overdue.length} invoice${overdue.length !== 1 ? 's' : ''} past due</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">2026 YTD received</div>
+      <div class="metric-value success">$${Math.round(ytdUSD).toLocaleString()}</div>
+      <div class="metric-sub">USD equivalent</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">All-time received</div>
+      <div class="metric-value">$${Math.round(totalRecUSD).toLocaleString()}</div>
+      <div class="metric-sub">${paid.length} paid invoices</div>
+    </div>
+  `;
+}
+
+function renderInvoices() {
+  const order = { Overdue: 0, Sent: 1, Paid: 2 };
+  let filtered = [...allInvoices];
+
+  if (activeFilter === 'owed') filtered = filtered.filter(i => i.status !== 'Paid');
+  if (activeFilter === 'overdue') filtered = filtered.filter(i => i.status === 'Overdue');
+
+  filtered.sort((a, b) => (order[a.status] ?? 3) - (order[b.status] ?? 3));
+
+  const filterPill = activeFilter
+    ? `<div class="filter-pill" onclick="toggleFilter('${activeFilter}')">
+        ${activeFilter === 'owed' ? 'Showing: open invoices' : 'Showing: overdue only'} &nbsp;✕
+       </div>`
+    : '';
+
+  const tableWrap = document.querySelector('#tab-invoices .table-wrap');
+  const existingPill = document.getElementById('filter-pill-container');
+  if (existingPill) existingPill.remove();
+  if (filterPill) {
+    const pillEl = document.createElement('div');
+    pillEl.id = 'filter-pill-container';
+    pillEl.innerHTML = filterPill;
+    tableWrap.parentNode.insertBefore(pillEl, tableWrap);
+  }
+
+  document.getElementById('invoices-tbody').innerHTML = filtered.map(i => `
+    <tr>
+      <td><div class="inv-num">${i.num}</div></td>
+      <td><div class="inv-partner">${i.partner}</div></td>
+      <td><div class="inv-period">${i.period}</div></td>
+      <td class="r"><div class="inv-amount">${fmt(i.inv, i.cur)}</div></td>
+      <td class="r"><div class="inv-wht">${i.wht ? fmt(i.wht, i.cur) : '—'}</div></td>
+      <td class="r"><div class="inv-amount">${i.rec ? fmt(i.rec, i.cur) : '—'}</div></td>
+      <td class="r"><div class="inv-amount">${i.usd ? '$' + i.usd.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : '—'}</div></td>
+      <td><span class="badge ${i.status.toLowerCase()}">${i.status}</span></td>
+      <td><div class="inv-notes" title="${escHtml(i.notes)}">${escHtml(i.notes)}</div></td>
+      <td>${i.status !== 'Paid' ? `<button class="mark-paid-btn" onclick="openModal('${i.id}', '${escHtml(i.num)}', '${i.cur}', ${i.inv})">Mark paid</button>` : ''}</td>
+    </tr>
+  `).join('');
+}
+
+function renderPartners() {
+  const PARTNER_ISSUES = {
+    'Miles of Music': ['🔴 Overdue invoice', '📄 Contract never countersigned', '⚠️ WHT certs never provided', '📧 K excluded from comms'],
+    'Flipper': ['⚠️ Confirm contract is executed (was draft)'],
+  };
+
+  const today = new Date();
+
+  document.getElementById('partners-grid').innerHTML = allPartners.map(r => {
+    const f = r.fields;
+    const name = f['Short Name'] || f['Subpublisher Name'];
+    const territory = Array.isArray(f['Territory']) ? '—' : (f['Notes'] || '').split('\n')[0].replace('Territory: ', '');
+    const renewal = f['Renewal Decision By'];
+    const issues = PARTNER_ISSUES[name] || [];
+    const hasIssues = issues.length > 0;
+
+    let renewClass = 'ok', renewText = '—';
+    if (renewal) {
+      const days = Math.round((new Date(renewal) - today) / 86400000);
+      renewText = fmtDate(renewal);
+      if (days < 0) renewClass = 'danger';
+      else if (days <= 90) renewClass = 'danger';
+      else if (days <= 180) renewClass = 'warn';
+      else renewClass = 'ok';
+    }
+
+    const contact = f['Contact Email'] ? f['Contact Email'].split('/')[0].trim() : '—';
+
+    return `
+      <div class="partner-card ${hasIssues ? 'has-issues' : ''}">
+        <div class="partner-header">
+          <div class="partner-name">${name}</div>
+        </div>
+        <div class="partner-territory">${territory}</div>
+        <div class="partner-meta">
+          <div class="meta-row">
+            <span class="meta-key">renewal decision</span>
+            <span class="meta-val ${renewClass}">${renewText}</span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-key">contact</span>
+            <span class="meta-val" style="font-size:10px;color:var(--muted)">${contact}</span>
+          </div>
+        </div>
+        ${issues.length ? `<div class="partner-issues">${issues.map(i => `<div class="issue-item">${i}</div>`).join('')}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+// ─── MARK PAID MODAL ──────────────────────────────────────
+function openModal(id, num, cur, invAmt) {
+  activeRecordId = id;
+  document.getElementById('modal-desc').textContent = `${num} — enter payment details received.`;
+  document.getElementById('modal-amount').value = invAmt;
+  document.getElementById('modal-wht').value = '';
+  document.getElementById('modal-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('modal-usd').value = '';
+  document.getElementById('modal-fx').value = cur === 'USD' ? '1.0000' : '';
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+  activeRecordId = null;
+}
+
+async function confirmMarkPaid() {
+  if (!activeRecordId) return;
+  const btn = document.getElementById('modal-confirm');
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+
+  const fields = {
+    'Status': 'Paid',
+    'Amount Received': parseFloat(document.getElementById('modal-amount').value) || 0,
+    'WHT Deducted': parseFloat(document.getElementById('modal-wht').value) || 0,
+    'Payment Date': document.getElementById('modal-date').value || null,
+    'USD Equivalent': parseFloat(document.getElementById('modal-usd').value) || 0,
+    'FX Rate Used': parseFloat(document.getElementById('modal-fx').value) || null,
+  };
+
+  try {
+    await airtablePatch(INVOICES_TABLE, activeRecordId, fields);
+    showToast('Invoice marked as paid ✓');
+    closeModal();
+    await loadData();
+  } catch(e) {
+    showToast('Error: ' + e.message, true);
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Mark paid';
+}
+
+// ─── UTILS ────────────────────────────────────────────────
+function fmt(n, cur) {
+  if (!n && n !== 0) return '—';
+  const sym = cur === 'USD' ? '$' : '€';
+  return sym + (n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function escHtml(str) {
+  return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function show(id) { document.getElementById(id).style.display = ''; }
+function hide(id) { document.getElementById(id).style.display = 'none'; }
+
+function toggleFilter(type) {
+  activeFilter = activeFilter === type ? null : type;
+  // Switch to invoices tab if not already there
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-invoices').classList.add('active');
+  document.querySelector('.tab-btn').classList.add('active');
+  renderMetrics();
+  renderInvoices();
+}
+
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+
+function showToast(msg, isError) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = isError ? 'var(--red-bg)' : 'var(--green-bg)';
+  t.style.borderColor = isError ? 'var(--red-border)' : 'var(--green-border)';
+  t.style.color = isError ? 'var(--red)' : 'var(--green)';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// Close modal on overlay click
+document.getElementById('modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+// ─── INIT ─────────────────────────────────────────────────
+if (getApiKey()) {
+  show('loading-screen');
+  loadData();
+} else {
+  show('api-prompt-screen');
+}
+</script>
+</body>
+</html>
